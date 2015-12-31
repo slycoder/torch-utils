@@ -21,7 +21,7 @@ opt = cmd:parse(arg)
 
 local input_file = path.join(opt.data_dir, 'input.txt')
 
-local untensorized={}
+local dataset = {}
 local dictionary = {}
 local N = 0
 local f = io.open(input_file, 'r')
@@ -36,21 +36,16 @@ for line in f:lines() do
         dictionary[field] = N
         N = N + 1
       end
-      words[#words + 1] = dictionary[field]
+      words[dictionary[field] + 1] = 1
     end
   end
-  untensorized[#untensorized + 1] = {words, torch.Tensor{label}}
+  local wordsWithWeight = {}
+  for word, _ in pairs(words) do
+    wordsWithWeight[#wordsWithWeight + 1] = {word, 1.0}
+  end
+  dataset[#dataset + 1] = {torch.Tensor(wordsWithWeight), torch.Tensor{label}}
 end
 f:close()
-
-local dataset = {}
-for _, value in ipairs(untensorized) do
-  local tensor = torch.zeros(N)
-  for _, word in ipairs(value[1]) do
-    tensor[word + 1] = 1
-  end
-  dataset[#dataset + 1] = {tensor, value[2]}
-end
 
 function dataset:size() return #dataset end
 
