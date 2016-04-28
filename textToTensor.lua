@@ -40,10 +40,14 @@ for line in f:lines() do
     end
   end
   local wordsWithWeight = {}
+  local nonEmpty = false
   for word, _ in pairs(words) do
     wordsWithWeight[#wordsWithWeight + 1] = {word, 1.0}
+    nonEmpty = true
   end
-  dataset[#dataset + 1] = {torch.Tensor(wordsWithWeight), torch.Tensor{label}}
+  if nonEmpty then
+    dataset[#dataset + 1] = {torch.Tensor(wordsWithWeight), torch.Tensor{label + 1}}
+  end
 end
 f:close()
 
