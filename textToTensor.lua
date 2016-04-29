@@ -15,6 +15,7 @@ cmd:text('Preprocess a data source')
 cmd:text()
 cmd:text('Options')
 cmd:option('-data_dir', 'data/', 'data directory. Should contain the file input.txt with input data')
+cmd:option('-min_count', 3, 'Minimum number of word occurrences to include')
 cmd:text()
 
 opt = cmd:parse(arg)
@@ -23,7 +24,7 @@ local input_file = path.join(opt.data_dir, 'input.txt')
 
 local dataset = {}
 local dictionary = {}
-local N = 0
+local wordCounts = {}
 local f = io.open(input_file, 'r')
 for line in f:lines() do
   local label = nil
@@ -32,26 +33,44 @@ for line in f:lines() do
     if label == nil then
       label = field
     else
-      if not dictionary[field] then
-        dictionary[field] = N
-        N = N + 1
+      if not wordCounts[field] then
+        wordCounts[field] = 0
       end
-      words[dictionary[field] + 1] = 1
+      words[#words + 1] = field
+      wordCounts[field] = wordCounts[field] + 1
     end
   end
-  local wordsWithWeight = {}
-  local nonEmpty = false
-  for word, _ in pairs(words) do
-    wordsWithWeight[#wordsWithWeight + 1] = {word, 1.0}
-    nonEmpty = true
-  end
-  if nonEmpty then
-    dataset[#dataset + 1] = {torch.Tensor(wordsWithWeight), torch.Tensor{label + 1}}
-  end
+  dataset[#dataset + 1] = {words, label + 1}
 end
 f:close()
 
-function dataset:size() return #dataset end
+local filteredDataset = {}
+local N = 1
+for ii = 1,#dataset do
+  local wordsWithWeight = {}
+  local nonEmpty = false
+  for _, word in ipairs(dataset[ii][1]) do
+    if wordCounts[word] >= opt.min_count then
+      if not dictionary[word] then
+        dictionary[word] = N
+        N = N + 1
+      end
+      wordsWithWeight[#wordsWithWeight + 1] = {dictionary[word], 1.0}
+      nonEmpty = true
+    end
+  end
+  if nonEmpty then
+    filteredDataset[#filteredDataset + 1] = {
+      torch.Tensor(wordsWithWeight),
+      dataset[ii][2]
+    }
+  end
+end
+
+print(tablex.size(dictionary))
+print(#filteredDataset)
+
+function filteredDataset:size() return #filteredDataset end
 
 torch.save(path.join(opt.data_dir, 'dictionary.t7'), dictionary)
-torch.save(path.join(opt.data_dir, 'dataset.t7'), dataset)
+torch.save(path.join(opt.data_dir, 'dataset.t7'), filteredDataset)
